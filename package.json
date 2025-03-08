@@ -8,6 +8,7 @@
     "build": "tsc",
 
     "sync": "npm run-script build && node dist/index.js sync",
+    "accounts": "npm run-script build && node dist/index.js accounts",
     "import": "npm run-script build && node dist/index.js import",
 
     "start": "npm run-script build && node dist/index.js",

@@ -3,6 +3,7 @@ import {Command, program} from "commander";
 import * as api from "@actual-app/api";
 import {syncCommand} from "./command/sync";
 import {importCommand, SUPPORTED_TYPES} from "./command/import";
+import {accountsCommand} from "./command/accounts";
 
 function actualCommand(cmd: Command): Command {
     return cmd
@@ -31,11 +32,15 @@ actualCommand(program.command("sync"))
     .description("Syncs Actual data")
     .action(async (options: any) => await actualRun(options, syncCommand));
 
+actualCommand(program.command("accounts"))
+    .description("Lists Actual accounts")
+    .action(async (options: any) => await actualRun(options, accountsCommand));
+
 actualCommand(program.command("import"))
     .description("Imports data from a file")
     .requiredOption("-t, --type <type>", "Import type. One of " + JSON.stringify(SUPPORTED_TYPES))
     .requiredOption("-f, --file <path>", "Path to file")
-    .requiredOption("-a, --account <name>", "Actual account name")
+    .requiredOption("-a, --account <id>", "Actual account ID")
     .option("-s, --since <unixmillis>", "Only import transactions since this date (only applicable to Plooto import type)")
     .action(async (options: any) => await actualRun(options, importCommand));
 

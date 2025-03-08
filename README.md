@@ -30,9 +30,19 @@ If you get "Could not get remote files", check your password. If your password h
 
 Most importing can be done by acquiring a CSV from your bank and giving it to the import command.
 
-Your account name is as it appears in Actual Budget, case sensitive. The URL, password, and Sync ID are the same as in setup above.
+You can get your account ID by running the following command. The URL, password, and Sync ID are the same as in the setup above.
 
-Usage: `npm run import -- -u http://localhost:5006 -p PASSWORD -b SYNC-ID -a "TD Canada Trust" -f ./td.csv -t td`
+```bash
+npm run accounts -- -u http://localhost:5006 -p PASSWORD -b SYNC-ID
+```
+
+Then you can import with something like the following:
+
+```bash
+npm run import -- -u http://localhost:5006 -p PASSWORD -b SYNC-ID -a "26d22481-5aaf-48f2-9ce6-9f9a395bf33f" -t td -f ./td.csv
+```
+
+**Note the importer-specific instructions below.**
 
 #### TD Imports
 
@@ -42,6 +52,22 @@ Usage: `npm run import -- -u http://localhost:5006 -p PASSWORD -b SYNC-ID -a "TD
 1. Download a CSV from your TD Bank Account
 2. Edit the CSV to exclude already-imported records.
 3. Run `npm run import -- -u url -p password -b syncId -a "TD Canada Trust" -f ./td.csv -t td`
+
+> ![WARNING]
+> Column order matters for this importer.
+
+Sample CSV:
+
+```csv
+02/28/2025,GC 5555-DEPOSIT     ,,140.00,55555.95
+02/28/2025,MONTHLY PLAN FEE    ,4.95,,55551.00
+02/28/2025,ACCT BAL REBATE     ,,4.95,55555.95
+```
+
+Headers are *not* included, but are:
+```csv
+Date,Description,Withdrawl,Deposit,Balance
+```
 
 #### Stripe Imports
 
