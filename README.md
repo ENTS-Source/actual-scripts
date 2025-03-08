@@ -50,8 +50,8 @@ npm run import -- -u http://localhost:5006 -p PASSWORD -b SYNC-ID -a "26d22481-5
 > Records which are already imported need to be removed before running the import script.
 
 1. Download a CSV from your TD Bank Account
-2. Edit the CSV to exclude already-imported records.
-3. Run `npm run import -- -u url -p password -b syncId -a "TD Canada Trust" -f ./td.csv -t td`
+2. Edit the CSV to exclude already-imported records
+3. Run `npm run import -- -u url -p password -b syncId -a accountId -f ./td.csv -t td`
 
 > ![WARNING]
 > Column order matters for this importer.
@@ -71,19 +71,39 @@ Date,Description,Withdrawl,Deposit,Balance
 
 #### Stripe Imports
 
-TODO
+1. Log in to the Stripe dashboard
+2. Click 'Transactions' on the left
+3. Click 'Export' at the top right
+4. Select a date range and leave default columns
+5. Click 'Export'
+6. Run `npm run import -- -u url -p password -b syncId -a accountId -f ./stripe.csv -t stripe`
 
 #### PayPal Imports
 
-TODO
+1. Log in to the PayPal Dashboard
+2. In the navigation menu, go to 'Activity' -> 'All Reports'
+3. Run the Activity Report (Balance Affecting and CSV only. "Since last download" recommended)
+4. Run `npm run import -- -u url -p password -b syncId -a accountId -f ./paypal.csv -t paypal`
 
 #### Square Imports
 
-TODO
+1. Log in to the Square Dashboard
+2. Go to your Balance
+3. Click your primary Location
+4. Click 'View All Transfers'
+5. Fix the date range
+6. Click Export
+7. Run `npm run import -- -u url -p password -b syncId -a accountId -f ./square.csv -t square`
 
 #### Plooto Imports
 
 > ![NOTE]
 > Plooto records often need manual correction post-import. Use the `-s <unixmillis>` option to skip already-fixed records.
 
-TODO
+> ![NOTE]
+> This importer assumes Plooto is only used to manage outbound payments/expenses.
+
+1. Log in to Plooto
+2. Go to Completed Payments
+3. Click Export -> All Payables
+4. Run `npm run import -- -u url -p password -b syncId -a accountId -f ./plooto.xlsx -t plooto -s 1741472844647`
