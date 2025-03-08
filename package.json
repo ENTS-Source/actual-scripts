@@ -10,11 +10,7 @@
     "sync": "npm run-script build && node dist/index.js sync",
     "accounts": "npm run-script build && node dist/index.js accounts",
     "import": "npm run-script build && node dist/index.js import",
-
-    "start": "npm run-script build && node dist/index.js",
-    "statement:balance": "npm run-script build && node dist/statements/balance.js",
-    "statement:income": "npm run-script build && node dist/statements/income.js",
-    "statement:spending": "npm run-script build && node dist/statements/spending.js"
+    "reports": "npm run-script build && node dist/index.js reports"
   },
   "author": "",
   "license": "Apache-2.0",

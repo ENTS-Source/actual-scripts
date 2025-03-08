@@ -4,6 +4,7 @@ import * as api from "@actual-app/api";
 import {syncCommand} from "./command/sync";
 import {importCommand, SUPPORTED_TYPES} from "./command/import";
 import {accountsCommand} from "./command/accounts";
+import {reportsCommand} from "./command/reports";
 
 function actualCommand(cmd: Command): Command {
     return cmd
@@ -43,5 +44,12 @@ actualCommand(program.command("import"))
     .requiredOption("-a, --account <id>", "Actual account ID")
     .option("-s, --since <unixmillis>", "Only import transactions since this date (only applicable to Plooto import type)")
     .action(async (options: any) => await actualRun(options, importCommand));
+
+actualCommand(program.command("reports"))
+    .description("Generates standard reports from Actual data")
+    .requiredOption("-y, --year <YYYY-MM-DD>", "Year to generate reports for in YYYY-MM-DD format")
+    .requiredOption("-c, --company <name>", "Company name for report header")
+    .option("-o, --output <path>", "Path to output directory", "./")
+    .action(async (options: any) => await actualRun(options, reportsCommand));
 
 program.parse(process.argv);
