@@ -46,14 +46,14 @@ npm run import -- -u http://localhost:5006 -p PASSWORD -b SYNC-ID -a "26d22481-5
 
 #### TD Imports
 
-> ![WARNING]
+> [!WARNING]
 > Records which are already imported need to be removed before running the import script.
 
 1. Download a CSV from your TD Bank Account
 2. Edit the CSV to exclude already-imported records
 3. Run `npm run import -- -u url -p password -b syncId -a accountId -f ./td.csv -t td`
 
-> ![WARNING]
+> [!WARNING]
 > Column order matters for this importer.
 
 Sample CSV:
@@ -97,10 +97,10 @@ Date,Description,Withdrawl,Deposit,Balance
 
 #### Plooto Imports
 
-> ![NOTE]
+> [!NOTE]
 > Plooto records often need manual correction post-import. Use the `-s <unixmillis>` option to skip already-fixed records.
 
-> ![NOTE]
+> [!NOTE]
 > This importer assumes Plooto is only used to manage outbound payments/expenses.
 
 1. Log in to Plooto
@@ -110,7 +110,7 @@ Date,Description,Withdrawl,Deposit,Balance
 
 ### Reports
 
-> ![WARNING]
+> [!WARNING]
 > These reports are based off data available in Actual Budget and may require manual edits after generation.
 
 Simple Excel reports can be generated using the following command. Be sure to supply a company name and Fiscal Year start date (`YYYY-MM-DD`) to the command. The URL, password, and Sync ID are the same as in the setup above.
