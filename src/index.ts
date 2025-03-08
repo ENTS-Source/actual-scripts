@@ -3,6 +3,7 @@ import {Command, program} from "commander";
 import * as api from "@actual-app/api";
 // @ts-ignore
 import {utils} from "@actual-app/api";
+import {syncCommand} from "./command/sync";
 
 function actualCommand(cmd: Command): Command {
     return cmd
@@ -21,12 +22,14 @@ async function actual(options: any) {
     await api.downloadBudget(options.budget);
 }
 
+async function actualRun(options: any, fn: (options: any) => Promise<void>) {
+    await actual(options);
+    await fn(options);
+    await api.shutdown();
+}
+
 actualCommand(program.command("sync"))
     .description("Syncs Actual data")
-    .action(async (options: any) => {
-        await actual(options);
-        console.log("Sync complete.");
-        await api.shutdown();
-    });
+    .action(async (options: any) => await actualRun(options, syncCommand));
 
 program.parse(process.argv);
