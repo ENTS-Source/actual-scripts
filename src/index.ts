@@ -1,9 +1,8 @@
 import {Command, program} from "commander";
 // @ts-ignore
 import * as api from "@actual-app/api";
-// @ts-ignore
-import {utils} from "@actual-app/api";
 import {syncCommand} from "./command/sync";
+import {importCommand, SUPPORTED_TYPES} from "./command/import";
 
 function actualCommand(cmd: Command): Command {
     return cmd
@@ -31,5 +30,13 @@ async function actualRun(options: any, fn: (options: any) => Promise<void>) {
 actualCommand(program.command("sync"))
     .description("Syncs Actual data")
     .action(async (options: any) => await actualRun(options, syncCommand));
+
+actualCommand(program.command("import"))
+    .description("Imports data from a file")
+    .requiredOption("-t, --type <type>", "Import type. One of " + JSON.stringify(SUPPORTED_TYPES))
+    .requiredOption("-f, --file <path>", "Path to file")
+    .requiredOption("-a, --account <name>", "Actual account name")
+    .option("-s, --since <unixmillis>", "Only import transactions since this date (only applicable to Plooto import type)")
+    .action(async (options: any) => await actualRun(options, importCommand));
 
 program.parse(process.argv);
