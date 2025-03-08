@@ -1,5 +1,3 @@
-// @ts-ignore
-import * as api from "@actual-app/api";
 import moment from "moment";
 import * as ExcelJS from "exceljs";
 import {parse} from "csv-parse/sync";
@@ -111,8 +109,6 @@ import fs from "node:fs";
     sheet.columns[2].width = 14.625;
     sheet.columns[3].width = 14.625;
     await workbook.xlsx.writeFile("./generated_shop_spend.xlsx");
-
-    await api.shutdown();
 })();
 
 async function getByShop(filename: string) {
