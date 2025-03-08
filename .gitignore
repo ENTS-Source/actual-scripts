@@ -1,0 +1,7 @@
+/dist
+/.idea
+/data
+/node_modules
+*.csv
+*.xlsx
+src/secrets.json
