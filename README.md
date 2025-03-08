@@ -107,3 +107,14 @@ Date,Description,Withdrawl,Deposit,Balance
 2. Go to Completed Payments
 3. Click Export -> All Payables
 4. Run `npm run import -- -u url -p password -b syncId -a accountId -f ./plooto.xlsx -t plooto -s 1741472844647`
+
+### Reports
+
+> ![WARNING]
+> These reports are based off data available in Actual Budget and may require manual edits after generation.
+
+Simple Excel reports can be generated using the following command. Be sure to supply a company name and Fiscal Year start date (`YYYY-MM-DD`) to the command. The URL, password, and Sync ID are the same as in the setup above.
+
+```bash
+npm run reports -- -u https://localhost:5006 -p PASSWORD -b SYNC-ID -c "Company Name Here" -y 2024-01-01
+```
