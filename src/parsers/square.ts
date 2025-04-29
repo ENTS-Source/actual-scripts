@@ -9,10 +9,10 @@ export class SquareRecord implements PaymentRecord {
 
     public static fromRow(headers: string[], row: string[]): SquareRecord | null {
         const id = row[headers.indexOf("Transaction ID")];
-        const amount = Number(row[headers.indexOf("Collected")].replace("$", "").replaceAll(",", ""));
+        const amount = Number(row[headers.indexOf("Collected")] || row[headers.indexOf("Total Collected")].replace("$", "").replaceAll(",", ""));
         const fee = Number(row[headers.indexOf("Fees")].replace("$", ""));
-        const description = row[headers.indexOf("Type")];
-        const dateString = row[headers.indexOf("Payment Date")];
+        const description = row[headers.indexOf("Type")] || row[headers.indexOf("Description")];
+        const dateString = row[headers.indexOf("Payment Date")] || row[headers.indexOf("Date")];
         const date = moment(dateString, "YYYY-MM-DD").toDate();
 
         console.log(`Square | ${date.toString()} | ${id} | ${amount} | ${fee} | ${description}`);
