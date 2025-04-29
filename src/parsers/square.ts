@@ -9,7 +9,7 @@ export class SquareRecord implements PaymentRecord {
 
     public static fromRow(headers: string[], row: string[]): SquareRecord | null {
         const id = row[headers.indexOf("Transaction ID")];
-        const amount = Number(row[headers.indexOf("Collected")].replace("$", ""));
+        const amount = Number(row[headers.indexOf("Collected")].replace("$", "").replaceAll(",", ""));
         const fee = Number(row[headers.indexOf("Fees")].replace("$", ""));
         const description = row[headers.indexOf("Type")];
         const dateString = row[headers.indexOf("Payment Date")];
