@@ -6,7 +6,6 @@
   "main": "lib/index.ts",
   "scripts": {
     "build": "tsc",
-
     "sync": "npm run-script build && node dist/index.js sync",
     "accounts": "npm run-script build && node dist/index.js accounts",
     "import": "npm run-script build && node dist/index.js import",
@@ -15,7 +14,7 @@
   "author": "",
   "license": "Apache-2.0",
   "dependencies": {
-    "@actual-app/api": "^25.3.1",
+    "@actual-app/api": "^25.5.0",
     "commander": "^13.1.0",
     "csv-parse": "^5.6.0",
     "exceljs": "^4.4.0",
