@@ -4,6 +4,7 @@ import {actualDate} from "../functions";
 import {q, runQuery, utils} from "@actual-app/api";
 import * as ExcelJS from "exceljs";
 import path from "node:path";
+import {Report} from "../reporting/report";
 
 export async function reportsCommand(options: any) {
     const fiscalYearStart = moment(options.year, "YYYY-MM-DD").toDate();
@@ -13,14 +14,14 @@ export async function reportsCommand(options: any) {
 
     options.company = options.company.replaceAll(/\^/gim, "");
 
-    await makeBalanceSheet(fiscalYearEnd, priorFiscalYearEnd, options.output, options.company);
+    await makeBalanceSheet(fiscalYearStart, fiscalYearEnd, priorFiscalYearEnd, options.output, options.company);
     await makeIncomeStatement(fiscalYearStart, fiscalYearEnd, priorFiscalYearStart, priorFiscalYearEnd, options.output, options.company);
 
     const quarterDate = (fiscalYearEnd.getTime() > (new Date()).getTime()) ? (new Date()) : fiscalYearEnd;
     await makeIncomeStatementQuarters(fiscalYearStart, quarterDate, options.output, options.company);
 }
 
-async function makeBalanceSheet(fiscalYearEnd: Date, priorFiscalYearEnd: Date, outputPath: string, companyName: string) {
+async function makeBalanceSheet(fiscalYearStart: Date, fiscalYearEnd: Date, priorFiscalYearEnd: Date, outputPath: string, companyName: string) {
     const balancesCurrentYear = await getBalances(fiscalYearEnd);
     const balancesPriorYear = await getBalances(priorFiscalYearEnd);
 
@@ -34,152 +35,39 @@ async function makeBalanceSheet(fiscalYearEnd: Date, priorFiscalYearEnd: Date, o
         }
     }
 
-    const asAtDate = fiscalYearEnd.getTime() > (new Date()).getTime() ? (new Date()) : fiscalYearEnd;
-    const asAt = `As at ${moment(asAtDate).format("MMMM DD, YYYY")} (Fiscal Year ${fiscalYearEnd.getFullYear()})`;
-    const assets = balancesCurrentYear.filter(b => b.balance >= 0);
-    const liabilities = balancesCurrentYear.filter(b => b.balance < 0);
+    const assets = balancesCurrentYear.filter(b =>
+        b["account.name"].startsWith("[A]")
+        || (b.balance >= 0 && !b["account.name"].startsWith("[L]")));
+    assets.forEach(b => b["account.name"] = (b["account.name"].startsWith("[A]") ? b["account.name"].slice(3) : b["account.name"]).trim());
+    const liabilities = balancesCurrentYear.filter(b =>
+        b["account.name"].startsWith("[L]")
+        || (b.balance < 0 && !b["account.name"].startsWith("[A]")));
+    liabilities.forEach(b => b["account.name"] = (b["account.name"].startsWith("[L]") ? b["account.name"].slice(3) : b["account.name"]).trim());
 
-    const currencyFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* \"-\"??_);_(@_)";
+    // Remove any "for reporting" labels
+    [...assets, ...liabilities].forEach(b =>  b["account.name"] = (b["account.name"].startsWith("[FOR REPORTING]") ? b["account.name"].slice(15) : b["account.name"]).trim())
 
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Balance Sheet", {
-        headerFooter: {
-            firstHeader: `&C&BBalance Sheet\n${companyName}\n${asAt}`,
-        },
-    });
+    const report = new Report(fiscalYearStart, companyName, outputPath);
+    const page = report.addPage('Balance Sheet', [
+        `Total FY ${fiscalYearEnd.getFullYear()}`,
+        `Total FY ${priorFiscalYearEnd.getFullYear()}`,
+    ]);
+    page.setGrandTotalLine('Net Assets', false);
 
-    sheet.mergeCells("A1:D1");
-    sheet.getCell("A1").value = "Balance Sheet";
-    sheet.getCell("A1").font = {bold: true, size: 14};
-    sheet.getCell("A1").alignment = {horizontal: "center"};
-
-    sheet.mergeCells("A2:D2");
-    sheet.getCell("A2").value = companyName;
-    sheet.getCell("A2").alignment = {horizontal: "center"};
-
-    sheet.mergeCells("A3:D3");
-    sheet.getCell("A3").value = asAt;
-    sheet.getCell("A3").alignment = {horizontal: "center"};
-
-    sheet.getCell("C5").value = `Total FY ${fiscalYearEnd.getFullYear()}`;
-    sheet.getCell("C5").alignment = {horizontal: "right"};
-    sheet.getCell("C5").font = {bold: true};
-
-    sheet.getCell("D5").value = `Total FY ${priorFiscalYearEnd.getFullYear()}`;
-    sheet.getCell("D5").alignment = {horizontal: "right"};
-    sheet.getCell("D5").font = {bold: true};
-
-    sheet.getCell("A6").value = "Assets";
-    sheet.getCell("A6").font = {bold: true};
-
-    sheet.getCell("A6").border = {top: {style: "thin"}, bottom: {style: "hair"}};
-    sheet.getCell("B6").border = {top: {style: "thin"}, bottom: {style: "hair"}};
-    sheet.getCell("C6").border = {top: {style: "thin"}, bottom: {style: "hair"}};
-    sheet.getCell("D6").border = {top: {style: "thin"}, bottom: {style: "hair"}};
-
-    let rows = 0;
+    const assetsSection = page.addSection('Assets');
     for (const account of assets) {
         const priorBalance = balancesPriorYear.find(b => b["account.id"] === account["account.id"])?.balance ?? 0;
-        sheet.addRow([account["account.name"], "", account.balance, priorBalance]);
-        sheet.getCell(`C${6 + 1 + rows}`).numFmt = currencyFormat;
-        sheet.getCell(`D${6 + 1 + rows}`).numFmt = currencyFormat;
-        rows++;
-    }
-    if (assets.length === 0) {
-        sheet.addRow(["<No assets found>", "", 0, 0]);
-        sheet.getCell(`A${6 + 1 + rows}`).font = {italic: true};
-        sheet.getCell(`C${6 + 1 + rows}`).numFmt = currencyFormat;
-        sheet.getCell(`D${6 + 1 + rows}`).numFmt = currencyFormat;
-        rows++;
+        assetsSection.addRow(account["account.name"], [account.balance, priorBalance]);
     }
 
-    sheet.getCell(`A${6 + 1 + rows}`).value = "Total Assets";
-    sheet.getCell(`A${6 + 1 + rows}`).font = {bold: true};
-
-    sheet.getCell(`C${6 + 1 + rows}`).value = {
-        formula: `SUM(C7:C${6 + rows})`,
-        result: assets.reduce((c, b) => b.balance + c, 0)
-    };
-    sheet.getCell(`C${6 + 1 + rows}`).numFmt = currencyFormat;
-    sheet.getCell(`C${6 + 1 + rows}`).font = {bold: true};
-
-    sheet.getCell(`D${6 + 1 + rows}`).value = {
-        formula: `SUM(D7:D${6 + rows})`,
-        result: assets.reduce((c, b) => b.balance + c, 0)
-    };
-    sheet.getCell(`D${6 + 1 + rows}`).numFmt = currencyFormat;
-    sheet.getCell(`D${6 + 1 + rows}`).font = {bold: true};
-
-    sheet.getCell(`A${6 + 1 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`B${6 + 1 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`C${6 + 1 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`D${6 + 1 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-
-    const assetsRow = 6 + 1 + rows;
-
-    sheet.getCell(`A${6 + 3 + rows}`).value = "Liabilities";
-    sheet.getCell(`A${6 + 3 + rows}`).font = {bold: true};
-
-    sheet.getCell(`A${6 + 3 + rows}`).border = {top: {style: "thin"}, bottom: {style: "hair"}};
-    sheet.getCell(`B${6 + 3 + rows}`).border = {top: {style: "thin"}, bottom: {style: "hair"}};
-    sheet.getCell(`C${6 + 3 + rows}`).border = {top: {style: "thin"}, bottom: {style: "hair"}};
-    sheet.getCell(`D${6 + 3 + rows}`).border = {top: {style: "thin"}, bottom: {style: "hair"}};
-
-    const liabilitiesRows = rows;
+    const liabilitiesSection = page.addSection('Liabilities');
     for (const account of liabilities) {
         const priorBalance = (balancesPriorYear.find(b => b["account.id"] === account["account.id"])?.balance ?? 0) * -1;
         account.balance = account.balance * -1;
-        sheet.addRow([account["account.name"], "", account.balance, priorBalance]);
-        sheet.getCell(`C${6 + 4 + rows}`).numFmt = currencyFormat;
-        sheet.getCell(`D${6 + 4 + rows}`).numFmt = currencyFormat;
-        rows++;
-    }
-    if (liabilities.length === 0) {
-        sheet.addRow(["<No liabilities found>", "", 0]);
-        sheet.getCell(`A${6 + 4 + rows}`).font = {italic: true};
-        sheet.getCell(`C${6 + 4 + rows}`).numFmt = currencyFormat;
-        sheet.getCell(`D${6 + 4 + rows}`).numFmt = currencyFormat;
-        rows++;
+        liabilitiesSection.addRow(account["account.name"], [account.balance, priorBalance]);
     }
 
-    sheet.getCell(`A${6 + 4 + rows}`).value = "Total Liabilities";
-    sheet.getCell(`A${6 + 4 + rows}`).font = {bold: true};
-
-    sheet.getCell(`C${6 + 4 + rows}`).value = {formula: `SUM(C${6 + 4 + liabilitiesRows}:C${6 + 3 + rows})`};
-    sheet.getCell(`C${6 + 4 + rows}`).numFmt = currencyFormat;
-    sheet.getCell(`C${6 + 4 + rows}`).font = {bold: true};
-
-    sheet.getCell(`D${6 + 4 + rows}`).value = {formula: `SUM(D${6 + 4 + liabilitiesRows}:D${6 + 3 + rows})`};
-    sheet.getCell(`D${6 + 4 + rows}`).numFmt = currencyFormat;
-    sheet.getCell(`D${6 + 4 + rows}`).font = {bold: true};
-
-    sheet.getCell(`A${6 + 4 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`B${6 + 4 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`C${6 + 4 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`D${6 + 4 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-
-    const liabilitiesRow = 6 + 4 + rows;
-
-    sheet.getCell(`A${6 + 6 + rows}`).value = "Net Assets";
-    sheet.getCell(`A${6 + 6 + rows}`).font = {bold: true};
-
-    sheet.getCell(`C${6 + 6 + rows}`).value = {formula: `C${assetsRow}-C${liabilitiesRow}`};
-    sheet.getCell(`C${6 + 6 + rows}`).numFmt = currencyFormat;
-    sheet.getCell(`C${6 + 6 + rows}`).font = {bold: true};
-
-    sheet.getCell(`D${6 + 6 + rows}`).value = {formula: `D${assetsRow}-D${liabilitiesRow}`};
-    sheet.getCell(`D${6 + 6 + rows}`).numFmt = currencyFormat;
-    sheet.getCell(`D${6 + 6 + rows}`).font = {bold: true};
-
-    sheet.getCell(`A${6 + 6 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`B${6 + 6 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`C${6 + 6 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`D${6 + 6 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-
-    sheet.columns[0].width = 22.25;
-    sheet.columns[2].width = 14.625;
-    sheet.columns[3].width = 14.625;
-    await workbook.xlsx.writeFile(path.join(outputPath, "./generated_balance_sheet.xlsx"));
+    await report.render();
 }
 
 async function makeIncomeStatementQuarters(fiscalYearStart: Date, fromDate: Date, outputPath: string, companyName: string) {
@@ -629,11 +517,13 @@ async function makeIncomeStatement(fiscalYearStart: Date, fiscalYearEnd: Date, p
     await workbook.xlsx.writeFile(path.join(outputPath, "./generated_income_expense_statement.xlsx"));
 }
 
-async function getBalances(endDate: Date): Promise<{'account.id': string, 'account.name': string, balance: number}[]> {
+type Balance = {'account.id': string, 'account.name': string, balance: number};
+
+async function getBalances(endDate: Date): Promise<Balance[]> {
     return ((await runQuery(q('transactions')
         .filter({date: {$lte: actualDate(endDate)}})
         .groupBy('account.id')
-        .orderBy(['account.offbudget', 'account.sort_order'])
+        .orderBy(['account.offbudget', 'account.sort_order', 'account.name'])
         .select(['account.id', 'account.name', {balance: {$sum: "$amount"}}])
     ) as { data: any }).data as { 'account.id': string, 'account.name': string, balance: number }[]).map(b => ({
         'account.id': b["account.id"],
@@ -642,7 +532,9 @@ async function getBalances(endDate: Date): Promise<{'account.id': string, 'accou
     }));
 }
 
-async function getCategoryBalances(startDate: Date, endDate: Date): Promise<{'category.group.name': string, 'category.name': string, 'category.is_income': boolean, total: number}[]> {
+type CategoryBalance = {'category.group.name': string, 'category.name': string, 'category.is_income': boolean, total: number}
+
+async function getCategoryBalances(startDate: Date, endDate: Date): Promise<CategoryBalance[]> {
     return ((await runQuery(q('transactions')
         .filter({$and: [{date: {$lte: actualDate(endDate)}}, {date: {$gte: actualDate(startDate)}}]})
         .groupBy('category.name')

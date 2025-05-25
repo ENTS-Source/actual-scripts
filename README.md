@@ -118,3 +118,5 @@ Simple Excel reports can be generated using the following command. Be sure to su
 ```bash
 npm run reports -- -u https://localhost:5006 -p PASSWORD -b SYNC-ID -c "Company Name Here" -y 2024-01-01
 ```
+
+**Tip**: Add `[A]` and `[L]` prefixes to your account names to force them into specific sections of the Balance Sheet.
