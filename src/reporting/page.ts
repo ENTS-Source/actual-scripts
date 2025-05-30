@@ -5,7 +5,6 @@ const FORMAT_CURRENCY = "_($* #,##0.00_);_($* (#,##0.00);_($* \"-\"??_);_(@_)";
 export class Page {
     private sections: Section[] = [];
     private grandTotalLineName: string | undefined;
-    private grandTotalAdd = true;
 
     constructor(public readonly title: string, private companyName: string, private byline: string, public readonly dataColNames: string[]) {
     }
@@ -16,9 +15,8 @@ export class Page {
         return s;
     }
 
-    public setGrandTotalLine(name: string, useAddition = true): void {
+    public setGrandTotalLine(name: string): void {
         this.grandTotalLineName = name;
-        this.grandTotalAdd = useAddition;
     }
 
     public render(sheet: ExcelJS.Worksheet): void {
@@ -68,7 +66,7 @@ export class Page {
             for (const col of excelDataCols) {
                 CellWrapper.of(sheet.getCell(`${col}${sectionStartRow}`))
                     .money()
-                    .formula(sectionLines.map(c => `${col}${c}`).join(this.grandTotalAdd ? "+" : "-"))
+                    .formula(sectionLines.map(c => `${col}${c}`).join("-"))
                     .font({bold: true});
             }
 
@@ -114,16 +112,20 @@ export class Section {
 
     public render(sheet: ExcelJS.Worksheet, fromRow: number, excelDataCols: string[]): number {
         for (const col of ['A', 'B', ...excelDataCols]) {
-            CellWrapper.of(sheet.getCell(`${col}${fromRow}`))
-                .border({top: {style: "thin"}, bottom: {style: "hair"}});
+            const cell = CellWrapper.of(sheet.getCell(`${col}${fromRow}`));
+            if (this.nested) {
+                cell.border({bottom: {style: "hair"}}).font({italic: true});
+            } else {
+                cell.border({top: {style: "thin"}, bottom: {style: "double"}});
+            }
         }
 
         CellWrapper.of(sheet.getCell(`A${fromRow}`))
             .value(this.title)
-            .font({bold: true});
+            .font({bold: true, italic: this.nested});
 
         let relRow = 1; // we have a section title, so we're at fromRow+1
-        if (this.data.length === 0) {
+        if (this.data.length === 0 && this.subsections.length === 0) {
             this.data.push(["[No Data]", Array(this.page.dataColNames.length).fill(0)]);
             CellWrapper.of(sheet.getCell(`A${fromRow + relRow}`))
                 .font({italic: true});
@@ -137,25 +139,37 @@ export class Section {
             relRow++;
         }
 
-        // TODO: Test
+        if (this.subsections.length > 0) {
+            relRow++;
+        }
+        const subsectionTotalRows: number[] = [];
         for (const subsection of this.subsections) {
             subsection.render(sheet, fromRow + relRow, excelDataCols);
-            relRow += subsection.data.length + 1;
+            relRow += subsection.data.length + 3;
+            subsectionTotalRows.push(fromRow + relRow - 2);
         }
 
         CellWrapper.of(sheet.getCell(`A${fromRow + relRow}`))
             .value(`Total ${this.title}`)
-            .font({bold: true});
+            .font({bold: true, italic: this.nested});
 
         for (const col of excelDataCols) {
-            CellWrapper.of(sheet.getCell(`${col}${fromRow + relRow}`))
+            const cell = CellWrapper.of(sheet.getCell(`${col}${fromRow + relRow}`))
                 .money()
-                .sum(`${col}${fromRow + 1}:${col}${fromRow + relRow - 1}`)
                 .font({bold: true});
+            if (this.subsections.length > 0) {
+                cell.formula(`${subsectionTotalRows.map(c => `${col}${c}`).join("+")}`);
+            } else {
+                cell.sum(`${col}${fromRow + 1}:${col}${fromRow + relRow - 1}`);
+            }
         }
         for (const col of ['A', 'B', ...excelDataCols]) {
-            CellWrapper.of(sheet.getCell(`${col}${fromRow + relRow}`))
-                .border({top: {style: "thin"}, bottom: {style: "double"}});
+            const cell = CellWrapper.of(sheet.getCell(`${col}${fromRow + relRow}`));
+            if (this.nested) {
+                cell.border({bottom: {style: "hair"}});
+            } else {
+                cell.border({top: {style: "thin"}, bottom: {style: "double"}});
+            }
         }
 
         return relRow + 1;
