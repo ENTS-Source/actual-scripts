@@ -14,14 +14,18 @@ export async function reportsCommand(options: any) {
 
     options.company = options.company.replaceAll(/\^/gim, "");
 
-    await makeBalanceSheet(fiscalYearStart, fiscalYearEnd, priorFiscalYearEnd, options.output, options.company);
+    const report = new Report(fiscalYearStart, options.company, options.output);
+
+    await makeBalanceSheet(fiscalYearEnd, priorFiscalYearEnd, report);
     await makeIncomeStatement(fiscalYearStart, fiscalYearEnd, priorFiscalYearStart, priorFiscalYearEnd, options.output, options.company);
 
     const quarterDate = (fiscalYearEnd.getTime() > (new Date()).getTime()) ? (new Date()) : fiscalYearEnd;
     await makeIncomeStatementQuarters(fiscalYearStart, quarterDate, options.output, options.company);
+
+    await report.render();
 }
 
-async function makeBalanceSheet(fiscalYearStart: Date, fiscalYearEnd: Date, priorFiscalYearEnd: Date, outputPath: string, companyName: string) {
+async function makeBalanceSheet(fiscalYearEnd: Date, priorFiscalYearEnd: Date, report: Report) {
     const balancesCurrentYear = await getBalances(fiscalYearEnd);
     const balancesPriorYear = await getBalances(priorFiscalYearEnd);
 
@@ -47,7 +51,6 @@ async function makeBalanceSheet(fiscalYearStart: Date, fiscalYearEnd: Date, prio
     // Remove any "for reporting" labels
     [...assets, ...liabilities].forEach(b =>  b["account.name"] = (b["account.name"].startsWith("[FOR REPORTING]") ? b["account.name"].slice(15) : b["account.name"]).trim())
 
-    const report = new Report(fiscalYearStart, companyName, outputPath);
     const page = report.addPage('Balance Sheet', [
         `Total FY ${fiscalYearEnd.getFullYear()}`,
         `Total FY ${priorFiscalYearEnd.getFullYear()}`,
@@ -66,8 +69,6 @@ async function makeBalanceSheet(fiscalYearStart: Date, fiscalYearEnd: Date, prio
         account.balance = account.balance * -1;
         liabilitiesSection.addRow(account["account.name"], [account.balance, priorBalance]);
     }
-
-    await report.render();
 }
 
 async function makeIncomeStatementQuarters(fiscalYearStart: Date, fromDate: Date, outputPath: string, companyName: string) {
