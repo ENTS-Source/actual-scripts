@@ -17,7 +17,7 @@ export async function reportsCommand(options: any) {
     const report = new Report(fiscalYearStart, options.company, options.output);
 
     await makeBalanceSheet(fiscalYearEnd, priorFiscalYearEnd, report);
-    await makeIncomeStatement(fiscalYearStart, fiscalYearEnd, priorFiscalYearStart, priorFiscalYearEnd, options.output, options.company);
+    await makeIncomeStatement(fiscalYearStart, fiscalYearEnd, priorFiscalYearStart, priorFiscalYearEnd, report);
 
     const quarterDate = (fiscalYearEnd.getTime() > (new Date()).getTime()) ? (new Date()) : fiscalYearEnd;
     await makeIncomeStatementQuarters(fiscalYearStart, quarterDate, options.output, options.company);
@@ -55,7 +55,7 @@ async function makeBalanceSheet(fiscalYearEnd: Date, priorFiscalYearEnd: Date, r
         `Total FY ${fiscalYearEnd.getFullYear()}`,
         `Total FY ${priorFiscalYearEnd.getFullYear()}`,
     ]);
-    page.setGrandTotalLine('Net Assets', false);
+    page.setGrandTotalLine('Net Assets');
 
     const assetsSection = page.addSection('Assets');
     for (const account of assets) {
@@ -299,7 +299,7 @@ async function makeIncomeStatementQuarters(fiscalYearStart: Date, fromDate: Date
     await workbook.xlsx.writeFile(path.join(outputPath, "./generated_income_expense_statement_quarters.xlsx"));
 }
 
-async function makeIncomeStatement(fiscalYearStart: Date, fiscalYearEnd: Date, priorFiscalYearStart:Date, priorFiscalYearEnd: Date, outputPath: string, companyName: string) {
+async function makeIncomeStatement(fiscalYearStart: Date, fiscalYearEnd: Date, priorFiscalYearStart:Date, priorFiscalYearEnd: Date, report: Report) {
     const balancesCurrentYear = await getCategoryBalances(fiscalYearStart, fiscalYearEnd);
     const balancesPriorYear = await getCategoryBalances(priorFiscalYearStart, priorFiscalYearEnd);
 
@@ -314,208 +314,34 @@ async function makeIncomeStatement(fiscalYearStart: Date, fiscalYearEnd: Date, p
         }
     }
 
-    const asAtDate = fiscalYearEnd.getTime() > (new Date()).getTime() ? (new Date()) : fiscalYearEnd;
-    const asAt = `As at ${moment(asAtDate).format("MMMM DD, YYYY")} (Fiscal Year ${fiscalYearEnd.getFullYear()})`;
     const groups = Array.from(new Set(balancesCurrentYear.map(b => b["category.group.name"])));
     const revenues = balancesCurrentYear.filter(b => b["category.is_income"]);
     const expenses = balancesCurrentYear.filter(b => !b["category.is_income"]);
 
-    const currencyFormat = "_($* #,##0.00_);_($* (#,##0.00);_($* \"-\"??_);_(@_)";
+    const page = report.addPage('Year - Income and Expense Stmt', [
+        `Total FY ${fiscalYearEnd.getFullYear()}`,
+        `Total FY ${priorFiscalYearEnd.getFullYear()}`,
+    ]);
+    page.setGrandTotalLine('Revenue over Expenses');
 
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Income and Expense Statement", {
-        headerFooter: {
-            firstHeader: `&C&BIncome and Expense Statement\n${companyName}\n${asAt}`,
-        },
-    });
-
-    sheet.mergeCells("A1:D1");
-    sheet.getCell("A1").value = "Income and Expense Statement";
-    sheet.getCell("A1").font = {bold: true, size: 14};
-    sheet.getCell("A1").alignment = {horizontal: "center"};
-
-    sheet.mergeCells("A2:D2");
-    sheet.getCell("A2").value = companyName;
-    sheet.getCell("A2").alignment = {horizontal: "center"};
-
-    sheet.mergeCells("A3:D3");
-    sheet.getCell("A3").value = asAt;
-    sheet.getCell("A3").alignment = {horizontal: "center"};
-
-    sheet.getCell("C5").value = `Total FY ${fiscalYearEnd.getFullYear()}`;
-    sheet.getCell("C5").alignment = {horizontal: "right"};
-    sheet.getCell("C5").font = {bold: true};
-
-    sheet.getCell("D5").value = `Total FY ${priorFiscalYearEnd.getFullYear()}`;
-    sheet.getCell("D5").alignment = {horizontal: "right"};
-    sheet.getCell("D5").font = {bold: true};
-
-    sheet.getCell("A6").value = "Revenues";
-    sheet.getCell("A6").font = {bold: true};
-
-    sheet.getCell("A6").border = {top: {style: "thin"}, bottom: {style: "hair"}};
-    sheet.getCell("B6").border = {top: {style: "thin"}, bottom: {style: "hair"}};
-    sheet.getCell("C6").border = {top: {style: "thin"}, bottom: {style: "hair"}};
-    sheet.getCell("D6").border = {top: {style: "thin"}, bottom: {style: "hair"}};
-
-    let rows = 0;
+    const revenuesSection = page.addSection('Revenues');
     for (const account of revenues) {
         const priorBalance = balancesPriorYear.find(b => b["category.name"] === account["category.name"])?.total ?? 0;
-        sheet.addRow([account["category.name"], "", account.total, priorBalance]);
-        sheet.getCell(`C${6 + 1 + rows}`).numFmt = currencyFormat;
-        sheet.getCell(`D${6 + 1 + rows}`).numFmt = currencyFormat;
-        rows++;
-    }
-    if (revenues.length === 0) {
-        sheet.addRow(["<No revenues found>", "", 0, 0]);
-        sheet.getCell(`A${6 + 1 + rows}`).font = {italic: true};
-        sheet.getCell(`C${6 + 1 + rows}`).numFmt = currencyFormat;
-        sheet.getCell(`D${6 + 1 + rows}`).numFmt = currencyFormat;
-        rows++;
+        revenuesSection.addRow(account["category.name"], [account.total, priorBalance]);
     }
 
-    sheet.getCell(`A${6 + 1 + rows}`).value = "Total Revenue";
-    sheet.getCell(`A${6 + 1 + rows}`).font = {bold: true};
-
-    sheet.getCell(`C${6 + 1 + rows}`).value = {
-        formula: `SUM(C7:C${6 + rows})`,
-        result: revenues.reduce((c, b) => b.total + c, 0)
-    };
-    sheet.getCell(`C${6 + 1 + rows}`).numFmt = currencyFormat;
-    sheet.getCell(`C${6 + 1 + rows}`).font = {bold: true};
-
-    sheet.getCell(`D${6 + 1 + rows}`).value = {
-        formula: `SUM(D7:D${6 + rows})`,
-        result: revenues.reduce((c, b) => b.total + c, 0)
-    };
-    sheet.getCell(`D${6 + 1 + rows}`).numFmt = currencyFormat;
-    sheet.getCell(`D${6 + 1 + rows}`).font = {bold: true};
-
-    sheet.getCell(`A${6 + 1 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`B${6 + 1 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`C${6 + 1 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`D${6 + 1 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-
-    const incomeRow = 6 + 1 + rows;
-
-    sheet.getCell(`A${6 + 3 + rows}`).value = "Expenses";
-    sheet.getCell(`A${6 + 3 + rows}`).font = {bold: true};
-
-    sheet.getCell(`A${6 + 3 + rows}`).border = {top: {style: "thin"}, bottom: {style: "hair"}};
-    sheet.getCell(`B${6 + 3 + rows}`).border = {top: {style: "thin"}, bottom: {style: "hair"}};
-    sheet.getCell(`C${6 + 3 + rows}`).border = {top: {style: "thin"}, bottom: {style: "hair"}};
-    sheet.getCell(`D${6 + 3 + rows}`).border = {top: {style: "thin"}, bottom: {style: "hair"}};
-
-    // Blank line for visual separation
-    sheet.addRow([]);
-    rows++;
-
-    const expensesRows = rows;
-    const expenseSums: number[] = [];
+    const expensesSection = page.addSection('Expenses');
     for (const group of groups) {
         if (!expenses.find(e => e["category.group.name"] === group)) {
             continue;
         }
 
-        // Intro line
-        sheet.addRow([group]);
-        sheet.getCell(`A${6 + 4 + rows}`).font = {italic: true, bold: true};
-        sheet.getCell(`A${6 + 4 + rows}`).border = {bottom: {style: "hair"}};
-        sheet.getCell(`B${6 + 4 + rows}`).border = {bottom: {style: "hair"}};
-        sheet.getCell(`C${6 + 4 + rows}`).border = {bottom: {style: "hair"}};
-        sheet.getCell(`D${6 + 4 + rows}`).border = {bottom: {style: "hair"}};
-        rows++;
-
-        // Expense lines
-        const groupRows = rows;
-        let currBalance = 0;
-        let prevBalance = 0;
-        for (const account of expenses.filter(b => b["category.group.name"] === group)) {
+        const subsection = expensesSection.addSubsection(group);
+        for (const account of expenses.filter(e => e["category.group.name"] === group)) {
             const priorBalance = (balancesPriorYear.find(b => b["category.name"] === account["category.name"])?.total ?? 0) * -1;
-            account.total = account.total * -1;
-            sheet.addRow([account["category.name"], "", account.total, priorBalance]);
-            sheet.getCell(`C${6 + 4 + rows}`).numFmt = currencyFormat;
-            sheet.getCell(`D${6 + 4 + rows}`).numFmt = currencyFormat;
-            rows++;
-
-            currBalance += account.total;
-            prevBalance += priorBalance;
+            subsection.addRow(account["category.name"], [account.total * -1, priorBalance]);
         }
-
-        // Total line
-        expenseSums.push(6 + 4 + rows);
-        sheet.getCell(`A${6 + 4 + rows}`).value = `Total ${group}`;
-        sheet.getCell(`A${6 + 4 + rows}`).font = {italic: true, bold: true};
-        sheet.getCell(`A${6 + 4 + rows}`).border = {bottom: {style: "hair"}};
-        sheet.getCell(`B${6 + 4 + rows}`).border = {bottom: {style: "hair"}};
-        sheet.getCell(`B${6 + 4 + rows}`).font = {italic: true, bold: true};
-        sheet.getCell(`C${6 + 4 + rows}`).value = {
-            formula: `SUM(C${6 + 4 + groupRows}:C${6 + 4 + rows - 1})`,
-            result: currBalance
-        };
-        sheet.getCell(`C${6 + 4 + rows}`).border = {bottom: {style: "hair"}};
-        sheet.getCell(`C${6 + 4 + rows}`).numFmt = currencyFormat;
-        sheet.getCell(`C${6 + 4 + rows}`).font = {italic: true, bold: true};
-        sheet.getCell(`D${6 + 4 + rows}`).value = {
-            formula: `SUM(D${6 + 4 + groupRows}:D${6 + 4 + rows - 1})`,
-            result: prevBalance
-        };
-        sheet.getCell(`D${6 + 4 + rows}`).border = {bottom: {style: "hair"}};
-        sheet.getCell(`D${6 + 4 + rows}`).numFmt = currencyFormat;
-        sheet.getCell(`D${6 + 4 + rows}`).font = {italic: true, bold: true};
-        rows++;
-
-        // Blank line
-        sheet.addRow([]);
-        rows++;
     }
-    if (expenses.length === 0) {
-        expenseSums.push(6 + 4 + rows);
-        sheet.addRow(["<No expenses found>", "", 0, 0]);
-        sheet.getCell(`A${6 + 4 + rows}`).font = {italic: true};
-        sheet.getCell(`C${6 + 4 + rows}`).numFmt = currencyFormat;
-        sheet.getCell(`D${6 + 4 + rows}`).numFmt = currencyFormat;
-        rows++;
-    }
-
-    sheet.getCell(`A${6 + 4 + rows}`).value = "Total Expenses";
-    sheet.getCell(`A${6 + 4 + rows}`).font = {bold: true};
-
-    sheet.getCell(`C${6 + 4 + rows}`).value = {formula: `SUM(${expenseSums.map(s => `C${s}`).join(',')})`};
-    sheet.getCell(`C${6 + 4 + rows}`).numFmt = currencyFormat;
-    sheet.getCell(`C${6 + 4 + rows}`).font = {bold: true};
-
-    sheet.getCell(`D${6 + 4 + rows}`).value = {formula: `SUM(${expenseSums.map(s => `D${s}`).join(',')})`};
-    sheet.getCell(`D${6 + 4 + rows}`).numFmt = currencyFormat;
-    sheet.getCell(`D${6 + 4 + rows}`).font = {bold: true};
-
-    sheet.getCell(`A${6 + 4 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`B${6 + 4 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`C${6 + 4 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`D${6 + 4 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-
-    const expenseRow = 6 + 4 + rows;
-
-    sheet.getCell(`A${6 + 6 + rows}`).value = "Revenue over Expenses";
-    sheet.getCell(`A${6 + 6 + rows}`).font = {bold: true};
-
-    sheet.getCell(`C${6 + 6 + rows}`).value = {formula: `C${incomeRow}-C${expenseRow}`};
-    sheet.getCell(`C${6 + 6 + rows}`).numFmt = currencyFormat;
-    sheet.getCell(`C${6 + 6 + rows}`).font = {bold: true};
-
-    sheet.getCell(`D${6 + 6 + rows}`).value = {formula: `D${incomeRow}-D${expenseRow}`};
-    sheet.getCell(`D${6 + 6 + rows}`).numFmt = currencyFormat;
-    sheet.getCell(`D${6 + 6 + rows}`).font = {bold: true};
-
-    sheet.getCell(`A${6 + 6 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`B${6 + 6 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`C${6 + 6 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-    sheet.getCell(`D${6 + 6 + rows}`).border = {top: {style: "thin"}, bottom: {style: "double"}};
-
-    sheet.columns[0].width = 22.25;
-    sheet.columns[2].width = 14.625;
-    sheet.columns[3].width = 14.625;
-    await workbook.xlsx.writeFile(path.join(outputPath, "./generated_income_expense_statement.xlsx"));
 }
 
 type Balance = {'account.id': string, 'account.name': string, balance: number};
