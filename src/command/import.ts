@@ -48,6 +48,11 @@ export async function importCommand(options: any) {
     }
 
     const payments = await parser.getPayments();
+    if (payments.length === 0) {
+        console.log("No payments to process");
+        return;
+    }
+
     let minDate: Date | null = null;
     let maxDate: Date | null = null;
     for (const payment of payments) {
