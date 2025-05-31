@@ -117,7 +117,7 @@ async function makeIncomeStatementQuarters(fiscalYearStart: Date, fromDate: Date
     const groups = Array.from(new Set(balancesByQuarter[0].map(b => b["category.group.name"])));
 
 
-    const page = report.addPage('Quarter - Income and Expense Stmt', quarterNames.map(n => `Total ${n}`));
+    const page = report.addPage('Income and Expense Statement', quarterNames.map(n => `Total ${n}`), 'Quarter - I&E Statement');
 
     const revenuesSection = page.addSection('Revenues');
     for (const account of revenues) {
@@ -163,10 +163,10 @@ async function makeIncomeStatement(fiscalYearStart: Date, fiscalYearEnd: Date, p
     const revenues = balancesCurrentYear.filter(b => b["category.is_income"]);
     const expenses = balancesCurrentYear.filter(b => !b["category.is_income"]);
 
-    const page = report.addPage('Year - Income and Expense Stmt', [
+    const page = report.addPage('Income and Expense Statement', [
         `Total FY ${fiscalYearEnd.getFullYear()}`,
         `Total FY ${priorFiscalYearEnd.getFullYear()}`,
-    ]);
+    ], 'Year - I&E Statement');
     page.setGrandTotalLine('Revenue over Expenses');
 
     const revenuesSection = page.addSection('Revenues');

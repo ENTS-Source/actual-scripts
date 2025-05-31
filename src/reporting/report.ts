@@ -5,6 +5,7 @@ import moment from "moment";
 export class Report {
     private workbook = new ExcelJS.Workbook();
     private pages: Page[] = [];
+    private pageSheetNames: string[] = [];
 
     constructor(private fiscalYearStart: Date, private companyName: string, private outputDirectory: string) {
     }
@@ -21,16 +22,17 @@ export class Report {
         return `As at ${moment(this.asAt).format("MMMM DD, YYYY")} (Fiscal Year ${this.fiscalYearEnd.getFullYear()})`;
     }
 
-    public addPage(name: string, dataColNames: string[]): Page {
+    public addPage(name: string, dataColNames: string[], sheetTitle?: string): Page {
         const p = new Page(name, this.companyName, this.byline, dataColNames);
         this.pages.push(p);
+        this.pageSheetNames.push(sheetTitle || name);
         return p;
     }
 
     public async render() {
-        for (const page of this.pages) {
-            const sheet = this.workbook.addWorksheet(page.title);
-            page.render(sheet);
+        for (let i = 0; i < this.pages.length; i++) {
+            const sheet = this.workbook.addWorksheet(this.pageSheetNames[i]);
+            this.pages[i].render(sheet);
         }
         await this.workbook.xlsx.writeFile(`${this.outputDirectory}/report.xlsx`);
     }
