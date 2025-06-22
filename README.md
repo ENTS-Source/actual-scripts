@@ -103,10 +103,26 @@ Date,Description,Withdrawl,Deposit,Balance
 > [!NOTE]
 > This importer assumes Plooto is only used to manage outbound payments/expenses.
 
+> [!WARNING]
+> This importer is for the legacy Plooto XLSX format.
+
 1. Log in to Plooto
 2. Go to Completed Payments
 3. Click Export -> All Payables
 4. Run `npm run import -- -u url -p password -b syncId -a accountId -f ./plooto.xlsx -t plooto -s 1741472844647`
+
+#### Plooto (CSV) Imports
+
+> [!NOTE]
+> Plooto records often need manual correction post-import. Use the `-s <unixmillis>` option to skip already-fixed records.
+
+> [!NOTE]
+> This importer assumes Plooto is only used to manage outbound payments/expenses.
+
+1. Log in to Plooto
+2. Go to Completed Payments
+3. Click Export -> Download as CSV
+4. Run `npm run import -- -u url -p password -b syncId -a accountId -f ./plooto.csv -t plooto_csv -s 1741472844647`
 
 ### Reports
 

@@ -9,12 +9,14 @@ import {SquareParser} from "../parsers/square";
 import {PlootoParser} from "../parsers/plooto";
 import {ExactPaymentRecord, FeePaymentRecord, PaymentParser, PaymentRecord} from "../parsers/@types";
 import {actualDate} from "../functions";
+import {PlootoCsvParser} from "../parsers/plooto-csv";
 
 const TD_TYPE = "td";
 const STRIPE_TYPE = "stripe";
 const PAYPAL_TYPE = "paypal";
 const SQUARE_TYPE = "square";
 const PLOOTO_TYPE = "plooto";
+const PLOOTO_CSV_TYPE = "plooto_csv";
 export const SUPPORTED_TYPES = [TD_TYPE, STRIPE_TYPE, PAYPAL_TYPE, SQUARE_TYPE, PLOOTO_TYPE];
 
 export async function importCommand(options: any) {
@@ -41,6 +43,9 @@ export async function importCommand(options: any) {
             break;
         case PLOOTO_TYPE:
             parser = new PlootoParser(options.file, Number(options.since));
+            break;
+        case PLOOTO_CSV_TYPE:
+            parser = new PlootoCsvParser(options.file, Number(options.since));
             break;
         default:
             console.error(`Unknown import type ${options.type}`);
