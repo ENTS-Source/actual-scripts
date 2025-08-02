@@ -17,9 +17,10 @@ export class PlootoCsvRecord implements PaymentRecord {
         const payee = row[headers.indexOf("Contact Name")];
         const amount = parseCurrency(row[headers.indexOf("Amount")]) * -1;
         const description = row[headers.indexOf("Memo")];
-        const debitDate = row[headers.indexOf("Debit Date")];
-        const scheduledDate = row[headers.indexOf("Scheduled Debit Date")];
-        const date = moment.utc(debitDate || scheduledDate, 'D MMM YYYY').local().toDate();
+        const createdDate = row[headers.indexOf("Created Date")];
+        const scheduledDebitDate = row[headers.indexOf("Scheduled Debit Date")];
+        const transactionDate = createdDate != scheduledDebitDate ? scheduledDebitDate : createdDate;
+        const date = moment.utc(transactionDate, 'D MMM YYYY').local().toDate();
         const fee = 0;
 
         const descriptionSingleLine = description.replaceAll("\n", "");
