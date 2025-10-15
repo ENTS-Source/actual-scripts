@@ -11,7 +11,7 @@ export class StripeRecord implements PaymentRecord {
         const id = row[headers.indexOf("id")];
         const amount = Number(row[headers.indexOf("Amount")]);
         const fee = Number(row[headers.indexOf("Fee")]) * -1;
-        const description = row[headers.indexOf("Description")] || row[headers.indexOf("Customer Email")];
+        const description = row[headers.indexOf("Description")] || row[headers.indexOf("Checkout Line Item Summary")] || row[headers.indexOf("Payment Link ID")] || row[headers.indexOf("Customer Email")];
         const status = row[headers.indexOf("Status")];
         const dateString = row[headers.indexOf("Created date (UTC)")];
 
