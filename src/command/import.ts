@@ -10,9 +10,11 @@ import {PlootoParser} from "../parsers/plooto";
 import {ExactPaymentRecord, FeePaymentRecord, PaymentParser, PaymentRecord} from "../parsers/@types";
 import {actualDate} from "../functions";
 import {PlootoCsvParser} from "../parsers/plooto-csv";
+import {StripeFeesParser} from "../parsers/stripe_fees";
 
 const TD_TYPE = "td";
 const STRIPE_TYPE = "stripe";
+const STRIPE_FEES_TYPE = "stripe_fees";
 const PAYPAL_TYPE = "paypal";
 const SQUARE_TYPE = "square";
 const PLOOTO_TYPE = "plooto";
@@ -34,6 +36,9 @@ export async function importCommand(options: any) {
             break;
         case STRIPE_TYPE:
             parser = new StripeParser(options.file);
+            break;
+        case STRIPE_FEES_TYPE:
+            parser = new StripeFeesParser(options.file);
             break;
         case PAYPAL_TYPE:
             parser = new PaypalParser(options.file);
