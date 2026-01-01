@@ -1,7 +1,6 @@
 import moment from "moment";
 import {actualDate} from "../functions";
-// @ts-ignore
-import {q, runQuery, utils} from "@actual-app/api";
+import {q, aqlQuery, utils} from "@actual-app/api";
 import {Report} from "../reporting/report";
 
 export async function reportsCommand(options: any) {
@@ -32,22 +31,54 @@ async function makeBalanceSheet(fiscalYearEnd: Date, priorFiscalYearEnd: Date, r
             balancesCurrentYear.push({
                 "account.id": account["account.id"],
                 "account.name": account["account.name"],
+                "account.note": account["account.note"],
                 balance: 0,
             });
         }
     }
 
-    const assets = balancesCurrentYear.filter(b =>
-        b["account.name"].startsWith("[A]")
-        || (b.balance >= 0 && !b["account.name"].startsWith("[L]")));
-    assets.forEach(b => b["account.name"] = (b["account.name"].startsWith("[A]") ? b["account.name"].slice(3) : b["account.name"]).trim());
-    const liabilities = balancesCurrentYear.filter(b =>
-        b["account.name"].startsWith("[L]")
-        || (b.balance < 0 && !b["account.name"].startsWith("[A]")));
-    liabilities.forEach(b => b["account.name"] = (b["account.name"].startsWith("[L]") ? b["account.name"].slice(3) : b["account.name"]).trim());
+    // Remove accounts which are zeros on both years
+    for (const account of balancesCurrentYear) {
+        const prevBalance = balancesPriorYear.find(b => b["account.id"] === account["account.id"]);
+        if (account.balance === 0 && prevBalance?.balance === 0) {
+            balancesCurrentYear.splice(balancesCurrentYear.indexOf(account), 1);
+            balancesPriorYear.splice(balancesPriorYear.indexOf(prevBalance), 1);
+        }
+    }
 
-    // Remove any "for reporting" labels
-    [...assets, ...liabilities].forEach(b =>  b["account.name"] = (b["account.name"].startsWith("[FOR REPORTING]") ? b["account.name"].slice(15) : b["account.name"]).trim())
+    const fixName = (account: Balance) => {
+        if ((account["account.note"] ?? "").includes("#CLEARING")) {
+            account["account.name"] = "Clearing - " + account["account.name"];
+        }
+        if ((account["account.note"] ?? "").includes("#NAME:")) {
+            const firstPart = account["account.note"].split("#NAME:")[1];
+            account["account.name"] = firstPart.substring(0, firstPart.indexOf(";")).trim();
+        }
+        return account["account.name"];
+    }
+
+    const isAsset = (account: Balance) => (account["account.note"] ?? "").includes("#ASSET");
+    const isLiability = (account: Balance) => (account["account.note"] ?? "").includes("#LIABILITY");
+
+    let assets = balancesCurrentYear.filter(b => isAsset(b) || (b.balance >= 0 && !isLiability(b)));
+    assets.forEach(b => b["account.name"] = fixName(b));
+    let liabilities = balancesCurrentYear.filter(b => isLiability(b) || (b.balance < 0 && !isAsset(b)));
+    liabilities.forEach(b => b["account.name"] = fixName(b));
+
+    const mergeBalances = (balances: Balance[]) => {
+        const merged: Balance[] = [];
+        for (const balance of balances) {
+            const existing = merged.find(b => b["account.name"] === balance["account.name"]);
+            if (existing) {
+                existing.balance += balance.balance;
+            } else {
+                merged.push(balance);
+            }
+        }
+        return merged;
+    };
+    assets = mergeBalances(assets);
+    liabilities = mergeBalances(liabilities);
 
     const page = report.addPage('Balance Sheet', [
         `Total FY ${fiscalYearEnd.getFullYear()}`,
@@ -189,25 +220,36 @@ async function makeIncomeStatement(fiscalYearStart: Date, fiscalYearEnd: Date, p
     }
 }
 
-type Balance = {'account.id': string, 'account.name': string, balance: number};
+type Balance = {'account.id': string, 'account.name': string, balance: number, 'account.note': string};
 
 async function getBalances(endDate: Date): Promise<Balance[]> {
-    return ((await runQuery(q('transactions')
+    const balances = ((await aqlQuery(<any>q('transactions')
         .filter({date: {$lte: actualDate(endDate)}})
         .groupBy('account.id')
         .orderBy(['account.offbudget', 'account.sort_order', 'account.name'])
         .select(['account.id', 'account.name', {balance: {$sum: "$amount"}}])
-    ) as { data: any }).data as { 'account.id': string, 'account.name': string, balance: number }[]).map(b => ({
+    ) as { data: any }).data as Balance[]).map(b => ({
         'account.id': b["account.id"],
         'account.name': b["account.name"],
+        'account.note': "TODO",
         balance: utils.integerToAmount(b.balance) as number,
     }));
+
+    for (const balance of balances) {
+        const note = await (await aqlQuery(<any>q('notes')
+            .filter({id: {$eq: "account-"+balance["account.id"]}})
+            .select(['note'])
+            .limit(1)));
+        balance["account.note"] = (<any>note).data[0]?.note ?? "";
+    }
+
+    return balances;
 }
 
 type CategoryBalance = {'category.group.name': string, 'category.name': string, 'category.is_income': boolean, total: number}
 
 async function getCategoryBalances(startDate: Date, endDate: Date): Promise<CategoryBalance[]> {
-    return ((await runQuery(q('transactions')
+    return ((await aqlQuery(<any>q('transactions')
         .filter({$and: [{date: {$lte: actualDate(endDate)}}, {date: {$gte: actualDate(startDate)}}]})
         .groupBy('category.name')
         .orderBy(['category.group.sort_order', 'category.sort_order', 'category.name'])
