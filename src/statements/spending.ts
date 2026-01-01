@@ -6,11 +6,11 @@ import fs from "node:fs";
 
 (async () => {
     // CHANGE ME
-    const fiscalYear = 2025;
+    const fiscalYear = 2026;
     const companyName = "Edmonton New Technology Society";
 
     const byShop = await getByShop("./txns_by_shop.csv");
-    let order = ["Society", "Pottery", "Woodshop", "Metal shop"];
+    let order = ["Pottery", "Pottery - Dip Glazes", "Woodshop", "Metal shop", "3D Printing", "Electronics", "Laser Cutting", "General"];
     order = order.concat(Array.from(byShop.keys()).filter(k => !order.includes(k)));
     const categorySpending = new Map<string, number>();
     for (const [_, records] of byShop) {
@@ -78,6 +78,7 @@ import fs from "node:fs";
         let spend = 0;
         for (const category of categorySpending.keys()) {
             const amount = byShop.get(shop)!.filter(r => r.category === category).reduce((a,b) => a + b.amount, 0);
+            if (amount === 0) continue;
             spend += amount;
             sheet.addRow([category, "", amount, {formula: `C${offset+idx}/${categorySpending.get(category) ?? 0}`, result: amount/(categorySpending.get(category) ?? 0)}]);
             sheet.getCell(`C${offset + idx}`).numFmt = currencyFormat;
