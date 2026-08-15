@@ -11,6 +11,7 @@ import {ExactPaymentRecord, FeePaymentRecord, PaymentParser, PaymentRecord} from
 import {actualDate} from "../functions";
 import {PlootoCsvParser} from "../parsers/plooto-csv";
 import {StripeFeesParser} from "../parsers/stripe_fees";
+import {ZeffyParser} from "../parsers/zeffy";
 
 const TD_TYPE = "td";
 const STRIPE_TYPE = "stripe";
@@ -19,6 +20,7 @@ const PAYPAL_TYPE = "paypal";
 const SQUARE_TYPE = "square";
 const PLOOTO_TYPE = "plooto";
 const PLOOTO_CSV_TYPE = "plooto_csv";
+const ZEFFY = "zeffy";
 export const SUPPORTED_TYPES = [TD_TYPE, STRIPE_TYPE, PAYPAL_TYPE, SQUARE_TYPE, PLOOTO_TYPE];
 
 export async function importCommand(options: any) {
@@ -51,6 +53,9 @@ export async function importCommand(options: any) {
             break;
         case PLOOTO_CSV_TYPE:
             parser = new PlootoCsvParser(options.file, Number(options.since));
+            break;
+        case ZEFFY:
+            parser = new ZeffyParser(options.file, Number(options.since));
             break;
         default:
             console.error(`Unknown import type ${options.type}`);

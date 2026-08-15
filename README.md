@@ -124,6 +124,16 @@ Date,Description,Withdrawl,Deposit,Balance
 3. Click Export -> Download as CSV
 4. Run `npm run import -- -u url -p password -b syncId -a accountId -f ./plooto.csv -t plooto_csv -s 1741472844647`
 
+#### Zeffy Imports
+
+> [!NOTE]
+> This importer assumes you're tracking non-card payment methods elsewhere in Actual.
+
+1. Log in to Zeffy
+2. Go to Payments
+3. Click Export and then Select All
+4. Run `npm run import -- -u url -p password -b syncId -a accountId -f ./zeffy.xlsx -t zeffy`
+
 ### Reports
 
 > [!WARNING]
