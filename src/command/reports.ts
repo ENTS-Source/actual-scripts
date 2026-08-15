@@ -2,6 +2,7 @@ import moment from "moment";
 import {actualDate} from "../functions";
 import {q, aqlQuery, utils} from "@actual-app/api";
 import {Report} from "../reporting/report";
+import {Section} from "../reporting/page";
 
 export async function reportsCommand(options: any) {
     const fiscalYearStart = moment(options.year, "YYYY-MM-DD").toDate();
@@ -23,6 +24,9 @@ export async function reportsCommand(options: any) {
 }
 
 async function makeBalanceSheet(fiscalYearEnd: Date, priorFiscalYearEnd: Date, report: Report) {
+    const boardReservesBalances = await getCategoryBalancesWithTag("#BD-RESERVES", fiscalYearEnd);
+    console.log(boardReservesBalances);
+
     const balancesCurrentYear = await getBalances(fiscalYearEnd);
     const balancesPriorYear = await getBalances(priorFiscalYearEnd);
 
@@ -84,20 +88,40 @@ async function makeBalanceSheet(fiscalYearEnd: Date, priorFiscalYearEnd: Date, r
         `Total FY ${fiscalYearEnd.getFullYear()}`,
         `Total FY ${priorFiscalYearEnd.getFullYear()}`,
     ]);
-    page.setGrandTotalLine('Net Assets');
+    page.setGrandTotalLine('Net Assets (Unrestricted)');
 
-    const assetsSection = page.addSection('Assets');
-    for (const account of assets) {
+    const addAsset = (account: Balance, section: Section) => {
         const priorBalance = balancesPriorYear.find(b => b["account.id"] === account["account.id"])?.balance ?? 0;
-        assetsSection.addRow(account["account.name"], [account.balance, priorBalance]);
-    }
+        section.addRow(account["account.name"], [account.balance, priorBalance]);
+    };
+    const assetsSection = page.addSection('Assets');
 
-    const liabilitiesSection = page.addSection('Liabilities');
-    for (const account of liabilities) {
+    const cashSubsection = assetsSection.addSubsection("Cash and Cash Equivalents");
+    assets
+        .filter(a => a["account.note"].includes("#CASH"))
+        .forEach(a => addAsset(a, cashSubsection));
+
+    const otherSubsection = assetsSection.addSubsection("Other Assets");
+    assets
+        .filter(a => !a["account.note"].includes("#CASH"))
+        .forEach(a => addAsset(a, otherSubsection));
+
+    const addLiability = (account: Balance, section: Section) => {
         const priorBalance = (balancesPriorYear.find(b => b["account.id"] === account["account.id"])?.balance ?? 0) * -1;
         account.balance = account.balance * -1;
-        liabilitiesSection.addRow(account["account.name"], [account.balance, priorBalance]);
-    }
+        section.addRow(account["account.name"], [account.balance, priorBalance]);
+    };
+    const liabilitiesSection = page.addSection('Liabilities');
+
+    const currentSubsection = liabilitiesSection.addSubsection("Current Liabilities");
+    liabilities
+        .filter(a => a["account.note"].includes("#CURRENT"))
+        .forEach(a => addLiability(a, currentSubsection));
+
+    const longTermSubsection = liabilitiesSection.addSubsection("Long-Term Liabilities");
+    liabilities
+        .filter(a => !a["account.note"].includes("#CURRENT"))
+        .forEach(a => addLiability(a, longTermSubsection));
 }
 
 async function makeIncomeStatementQuarters(fiscalYearStart: Date, fromDate: Date, report: Report) {
@@ -228,10 +252,10 @@ async function getBalances(endDate: Date): Promise<Balance[]> {
         .groupBy('account.id')
         .orderBy(['account.offbudget', 'account.sort_order', 'account.name'])
         .select(['account.id', 'account.name', {balance: {$sum: "$amount"}}])
-    ) as { data: any }).data as Balance[]).map(b => ({
+    ) as { data: any }).data as any[]).map(b => ({
         'account.id': b["account.id"],
         'account.name': b["account.name"],
-        'account.note': "TODO",
+        'account.note': "filled later",
         balance: utils.integerToAmount(b.balance) as number,
     }));
 
@@ -246,7 +270,7 @@ async function getBalances(endDate: Date): Promise<Balance[]> {
     return balances;
 }
 
-type CategoryBalance = {'category.group.name': string, 'category.name': string, 'category.is_income': boolean, total: number}
+type CategoryBalance = {'category.group.name': string, 'category.name': string, 'category.is_income': boolean, 'category.note'?: string, total: number}
 
 async function getCategoryBalances(startDate: Date, endDate: Date): Promise<CategoryBalance[]> {
     return ((await aqlQuery(<any>q('transactions')
@@ -265,4 +289,16 @@ async function getCategoryBalances(startDate: Date, endDate: Date): Promise<Cate
         'category.is_income': b["category.is_income"],
         total: utils.integerToAmount(b.total) as number,
     })).filter(b => b["category.name"] !== null);
+}
+
+async function getCategoryBalancesWithTag(tag: string, endDate: Date): Promise<CategoryBalance[]> {
+    const group = (await (await aqlQuery(<any>q('notes')
+        .filter({note: {$like: `%${tag}%`}})
+        .select(['id'])
+        .limit(1))) as {data: any[]}).data?.[0]?.id;
+    if (!group) {
+        return [];
+    }
+
+    return [];
 }
