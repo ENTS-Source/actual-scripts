@@ -80,7 +80,7 @@ export async function importCommand(options: any) {
 
 
     const payees = await api.getPayees();
-    const transactions = await api.getTransactions(account.id, minDate, maxDate);
+    const transactions = await api.getTransactions(account.id, actualDate(minDate!), actualDate(maxDate!));
     const findPayee = (payment: PaymentRecord): any => {
         let targetPayee: any = null;
         for (const payee of payees) {
