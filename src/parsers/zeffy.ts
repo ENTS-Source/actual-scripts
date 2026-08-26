@@ -17,7 +17,7 @@ export class ZeffyRecord implements PaymentRecord {
         const date = moment.utc(dateString).local().toDate();
         const fee = 0;
 
-        if (paymentMethod != "Card") {
+        if (paymentMethod != "Card" && paymentMethod != "Apple Pay / Google Pay") {
             return null;
         }
 
